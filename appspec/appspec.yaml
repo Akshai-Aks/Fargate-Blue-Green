@@ -1,0 +1,15 @@
+# Reference AppSpec for the ECS blue/green deployment.
+#
+# scripts/deploy.sh generates this dynamically (as JSON) with the freshly
+# registered task-definition ARN, so you do not need to edit this file by hand.
+# It is kept here to document the shape CodeDeploy expects.
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        # deploy.sh substitutes the real task-definition ARN it just registered.
+        TaskDefinition: "<TASK_DEFINITION_ARN>"
+        LoadBalancerInfo:
+          ContainerName: "fargate-bg-app"
+          ContainerPort: 8080

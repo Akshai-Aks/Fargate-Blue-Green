@@ -1,0 +1,24 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Local runtime artifacts
+.last_deployment_id
+
+# Evidence: keep the folder, ignore nothing by default (commit your evidence).
+!evidence/.gitkeep
+
+# OS / editor
+.DS_Store
+*.swp
+__pycache__/

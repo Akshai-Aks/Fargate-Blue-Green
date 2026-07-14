@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and adjust as needed. All values have sensible defaults.
+aws_region    = "ap-south-1"
+project_name  = "fargate-bg"
+image_tag     = "v1"
+container_port = 8080
+task_cpu      = 256
+task_memory   = 512
+desired_count = 1
