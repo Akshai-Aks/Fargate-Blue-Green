@@ -9,9 +9,13 @@ VERSION="${1:?usage: build_push.sh <v1|v2|v3>}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TF="terraform -chdir=${ROOT}/terraform output -raw"
 
-REGION="$(${TF} region)"
 REPO_URL="$(${TF} ecr_repository_url)"
 REGISTRY="${REPO_URL%%/*}"
+# The `region` output isn't evaluated during the ECR-only bootstrap apply
+# (-target prunes outputs not tied to the targeted resource), so fall back to
+# deriving it from the registry host: <acct>.dkr.ecr.<region>.amazonaws.com
+REGION="$(${TF} region 2>/dev/null || true)"
+[ -z "${REGION}" ] && REGION="$(echo "${REGISTRY}" | cut -d. -f4)"
 
 # v3 is the intentionally broken release.
 HEALTHY="true"

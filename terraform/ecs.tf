@@ -81,7 +81,12 @@ resource "aws_ecs_service" "app" {
     container_port   = var.container_port
   }
 
-  health_check_grace_period_seconds = 60
+  # 0 = honor ALB health checks immediately. The app binds in <2s, so it needs
+  # no warm-up window; a non-trivial grace period would make CodeDeploy treat a
+  # freshly-launched (but broken) task set as healthy during the blue/green
+  # evaluation, cut traffic over, and mark the deployment Succeeded before the
+  # health check could ever trip -- defeating the automatic rollback.
+  health_check_grace_period_seconds = 0
 
   # CodeDeploy owns task-definition rollouts and the active target group after
   # the first apply; without these ignores Terraform would fight CodeDeploy.

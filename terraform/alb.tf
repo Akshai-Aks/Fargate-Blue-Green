@@ -21,10 +21,10 @@ resource "aws_lb_target_group" "blue" {
     path                = var.health_check_path
     protocol            = "HTTP"
     matcher             = "200"
-    interval            = 15
+    interval            = 10
     timeout             = 5
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
   }
 
   deregistration_delay = 30
@@ -43,10 +43,10 @@ resource "aws_lb_target_group" "green" {
     path                = var.health_check_path
     protocol            = "HTTP"
     matcher             = "200"
-    interval            = 15
+    interval            = 10
     timeout             = 5
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
   }
 
   deregistration_delay = 30

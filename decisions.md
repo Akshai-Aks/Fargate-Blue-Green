@@ -42,18 +42,36 @@ CloudWatch-alarm-based rollback. In production you want a canary so a bad
 release only touches a fraction of traffic before alarms trip. That is the right
 call for a real service but slows and complicates the demonstration.
 
-## 3. Health-check timing — 15s interval, 3 thresholds, 60s grace
+## 3. Health-check timing — 10s interval, 2 thresholds, **0s grace**
 
-**Choice:** ALB target group health check every 15s, path `/health`, 3 checks to
-flip healthy or unhealthy; ECS `health_check_grace_period_seconds = 60`.
+**Choice:** ALB target group health check every 10s, path `/health`, 2
+consecutive checks to flip healthy or unhealthy; ECS
+`health_check_grace_period_seconds = 0`.
 
-**Why:** These have to balance two failure modes. Too aggressive (short interval
-/ threshold of 1 / no grace period) and a cold-starting task gets killed before
-it finishes booting, producing *false* rollbacks. Too lax (long interval / high
-thresholds) and a genuinely broken v3 takes a long time to be declared failed,
-slowing the demo. ~45s to declare healthy (3×15s) with a 60s grace window is a
-comfortable middle for a container that boots in a second or two, and it still
-detects v3's broken `/health` well within the deployment window.
+**Why:** The grace period is the subtle one, and getting it wrong breaks the
+whole rollback story. `health_check_grace_period_seconds` tells the ECS
+scheduler to *ignore* load-balancer health for that many seconds after a task
+starts. During a CodeDeploy blue/green deployment, ECS reports the replacement
+task set as "healthy" while the grace window is open (the task is merely
+RUNNING). CodeDeploy takes that as its cue to shift production traffic and mark
+the deployment **Succeeded** — which, with a 60s grace period, happened *before*
+the ALB ever noticed the broken v3 returning 500. The old task set was then
+terminated, so there was nothing left to roll back to, and the broken release
+stayed live. (This was observed in practice; see the note below.)
+
+Because the app binds in under two seconds and serves `/health` immediately, it
+needs no warm-up window at all, so the grace period is set to **0**: ECS honors
+the health check from the start, a broken task never reports healthy, CodeDeploy
+never cuts traffic over to it, and `auto_rollback_configuration` fires. The
+10s interval with a threshold of 2 declares a healthy v2 ready in ~20s and a
+broken v3 failed in ~20s — fast for the demo without being so twitchy that a
+genuinely healthy task is failed mid-startup (which would cause *false*
+rollbacks, the failure mode the brief warns about).
+
+> **Lesson learned:** an initial 60s grace period let a broken v3 deploy succeed
+> instead of rolling back. The grace period must be shorter than the window in
+> which CodeDeploy evaluates replacement-set health — for an instant-start app,
+> that means 0.
 
 ## 4. CodeDeploy owns rollouts — Terraform `ignore_changes`
 
