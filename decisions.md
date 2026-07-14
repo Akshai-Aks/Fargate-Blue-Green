@@ -73,6 +73,33 @@ rollbacks, the failure mode the brief warns about).
 > which CodeDeploy evaluates replacement-set health — for an instant-start app,
 > that means 0.
 
+## 3b. Health-based rollback needs a CloudWatch alarm, not just `DEPLOYMENT_FAILURE`
+
+**Choice:** A CloudWatch alarm on each target group's `UnHealthyHostCount`
+(`AWS/ApplicationELB`), wired into the deployment group's `alarm_configuration`,
+with `DEPLOYMENT_STOP_ON_ALARM` added to `auto_rollback_configuration` and a
+3-minute bake window before the old task set is terminated.
+
+**Why:** ECS blue/green via CodeDeploy does **not** fail a deployment just
+because ALB health checks fail. As long as the container is *RUNNING*, CodeDeploy
+treats the replacement task set as installed, shifts traffic, and marks the
+deployment Succeeded. Our broken v3 runs fine — it simply returns 500 on
+`/health` — so it is exactly this case, and `auto_rollback_configuration` scoped
+to `DEPLOYMENT_FAILURE` alone let it go live (observed in practice: two separate
+v3 deploys "Succeeded" with an unhealthy target). The alarm is the mechanism
+that actually enforces health: CodeDeploy watches it for the whole deployment
+(including the bake window) and rolls back when unhealthy hosts appear. This
+only works in combination with **decision 3** (grace period 0) — a grace period
+would keep the unhealthy target reporting "healthy" long enough for the alarm to
+stay quiet until after cutover.
+
+**Rejected alternatives:** (a) making v3 *crash* instead of returning 500 — that
+would fail `Install` and roll back via `DEPLOYMENT_FAILURE` without an alarm, but
+it tests the wrong failure mode (a crash, not a bad health check) and is less
+realistic. (b) A `BeforeAllowTraffic` Lambda validation hook — more precise
+(blocks before any traffic shifts) but adds a Lambda, its IAM role, and appspec
+hooks; the alarm is far less machinery for the same outcome here.
+
 ## 4. CodeDeploy owns rollouts — Terraform `ignore_changes`
 
 **Choice:** The ECS service uses the `CODE_DEPLOY` deployment controller, and
